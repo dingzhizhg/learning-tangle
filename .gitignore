@@ -1,0 +1,5 @@
+.idea/
+.vscode/
+tangle_data/
+data/
+__pycache__
