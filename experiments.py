@@ -5,17 +5,20 @@ from sklearn.model_selection import ParameterGrid
 params = {
     'dataset': ['femnist'],
     'model': ['cnn'],
-    'num_rounds': [200],
+    'num_rounds': [100],
     'eval_every': [10],
-    'clients_per_round':  [15],
+    'clients_per_round':  [10],
     'num_tips':  [2],
-    'sample_size':  [10],
-    'reference_avg_top':  [1,2,10,50,100],
+    'sample_size':  [5],
+    'reference_avg_top':  [2],
     'target_accuracy':  [1.0],
     'learning_rate':  [0.06],
-    'poison_type':  ['LABELFLIP'],
-    'poison_fraction':  [0.1],
-    'poison_from':  [100],
+    'poison_type':  ['NONE'],
+    'poison_fraction':  [0],
+    'poison_from':  [0],
+    # 'poison_type':  ['LABELFLIP'],
+    # 'poison_fraction':  [0.1],
+    # 'poison_from':  [100],
 }
 
 file_name = 'results.txt'
