@@ -241,8 +241,8 @@ def print_stats(
     writer(num_round, test_stat_metrics, eval_set)
 
     with open('results.txt', 'a+') as file:
-        file.write('Round %d \n' % num_round)
-        file.write(str(average_test_metrics) + '\n')
+        # file.write('Round %d \n' % num_round)
+        file.write(str(average_test_metrics) + ',\n')
     return average_test_metrics
 
 
@@ -257,8 +257,9 @@ def print_metrics(metrics, weights, num_round, prefix='', print_conf_matrix=Fals
             for that client.
     """
     ordered_weights = [weights[c] for c in sorted(weights) if c in metrics]
-    metric_names = metrics_writer.get_metrics_names(metrics)
-    to_ret = None
+    # metric_names = metrics_writer.get_metrics_names(metrics)
+    # to_ret = None
+    metric_names = ['accuracy', 'loss']  # 只保留accuracy和loss
     average_metrics = {}
     for metric in metric_names:
         if metric == 'conf_matrix':
