@@ -19,33 +19,65 @@ class Model(ABC):
         self.lr = lr
         self.seed = seed
         self._optimizer = optimizer
+        self.graph = None
+        self.sess = None
+        self.global_step = None
+        self.features = None
+        self.labels = None
+        self.train_op = None
+        self.eval_metric_ops = None
+        self.conf_matrix = None
+        self.loss = None
+        self.saver = None
+        self.size = None
+        self.flops = None
 
-        self.graph = tf.Graph()
-        with self.graph.as_default():
-            tf.set_random_seed(123 + self.seed)
-            self.features, self.labels, self.train_op, self.eval_metric_ops, self.conf_matrix, self.loss = self.create_model()
-            self.saver = tf.train.Saver()
-        self.sess = tf.Session(graph=self.graph)
-
-        self.size = graph_size(self.graph)
-
-        if current_process().name == 'MainProcess':
+    def initialize(self):
+        if self.graph is None:
+            self.graph = tf.Graph()
             with self.graph.as_default():
+                tf.set_random_seed(123 + self.seed)
+                self.global_step = tf.Variable(0, trainable=False, name='global_step')
+                self.features, self.labels, self.train_op, self.eval_metric_ops, self.conf_matrix, self.loss = self.create_model()
+                self.saver = tf.train.Saver()
+            self.size = graph_size(self.graph)
+
+            # 在所有进程中创建 Session
+            with self.graph.as_default():
+                self.sess = tf.Session(graph=self.graph)
                 self.sess.run(tf.global_variables_initializer())
 
-                metadata = tf.RunMetadata()
-                opts = tf.profiler.ProfileOptionBuilder.float_operation()
-                self.flops = tf.profiler.profile(self.graph, run_meta=metadata, cmd='scope', options=opts).total_float_ops
+                if current_process().name == 'MainProcess':
+                    metadata = tf.RunMetadata()
+                    opts = tf.profiler.ProfileOptionBuilder.float_operation()
+                    self.flops = tf.profiler.profile(self.graph, run_meta=metadata, cmd='scope', options=opts).total_float_ops
 
-        np.random.seed(self.seed)
+            np.random.seed(self.seed)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # 移除不可序列化的对象
+        state['graph'] = None
+        state['sess'] = None
+        state['_optimizer'] = None
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # 重新初始化
+        self.initialize()
 
     def set_params(self, model_params):
+        if self.sess is None:
+            self.initialize()
         with self.graph.as_default():
             all_vars = tf.trainable_variables()
             for variable, value in zip(all_vars, model_params):
                 variable.load(value, self.sess)
 
     def get_params(self):
+        if self.sess is None:
+            self.initialize()
         with self.graph.as_default():
             model_params = self.sess.run(tf.trainable_variables())
         return model_params
@@ -54,7 +86,38 @@ class Model(ABC):
     def optimizer(self):
         """Optimizer to be used by the model."""
         if self._optimizer is None:
-            self._optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.lr)
+            # 修改学习率衰减策略
+            decay_steps = 200
+            decay_rate = 0.95
+            
+            # 使用分段式学习率
+            global_step = self.global_step
+            boundaries = [300, 600, 900]  
+            values = [self.lr, self.lr * 0.1, self.lr * 0.01, self.lr * 0.001]  
+            # boundaries = [200, 400, 600, 800]  
+            # values = [self.lr, self.lr * 0.1, self.lr * 0.01, self.lr * 0.001, self.lr * 0.0001]  
+            
+            learning_rate = tf.train.piecewise_constant_decay(
+                global_step,
+                boundaries=boundaries,
+                values=values
+            )
+            
+            learning_rate = tf.train.exponential_decay(
+                learning_rate,
+                global_step,
+                decay_steps,
+                decay_rate,
+                staircase=True
+            )
+            
+            # 使用Adam优化器，调整参数
+            self._optimizer = tf.train.AdamOptimizer(
+                learning_rate=learning_rate,
+                beta1=0.9,
+                beta2=0.999,
+                epsilon=1e-08
+            )
 
         return self._optimizer
 

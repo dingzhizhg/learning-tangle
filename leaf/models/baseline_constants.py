@@ -22,7 +22,7 @@ MAIN_PARAMS = {
 MODEL_PARAMS = {
     'femnist.cnn': (0.0003, 62), # lr, num_classes
     'cifar10.cnn': (0.0001, 10), # lr, num_classes
-    'cifar100.cnn': (0.0001, 10), # lr, num_classes
+    'cifar100.cnn': (0.0001, 100), # lr, num_classes
 }
 """dict: Model specific parameter specification"""
 

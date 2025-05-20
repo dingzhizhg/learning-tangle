@@ -3,13 +3,13 @@ import shutil
 from sklearn.model_selection import ParameterGrid
 
 params = {
-    'dataset': ['cifar10'],
+    'dataset': ['cifar100'],
     'model': ['cnn'],
-    'num_rounds': [100],
+    'num_rounds': [200],
     'eval_every': [10],
 
-    'num_epochs': [1],
-    'batch_size': [10],
+    'num_epochs': [5],
+    'batch_size': [64],
 
     'clients_per_round':  [10],
     'num_tips':  [2],
