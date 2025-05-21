@@ -3,13 +3,15 @@ import shutil
 from sklearn.model_selection import ParameterGrid
 
 params = {
-    'dataset': ['cifar100'],
+    'dataset': ['mnist'],
     'model': ['cnn'],
-    'num_rounds': [200],
+    'num_rounds': [100],
     'eval_every': [10],
 
-    'num_epochs': [5],
-    'batch_size': [64],
+    'num_epochs': [1],
+    'batch_size': [16],
+    # 'num_epochs': [5],
+    # 'batch_size': [64],
 
     'clients_per_round':  [10],
     'num_tips':  [2],
@@ -17,8 +19,8 @@ params = {
     'reference_avg_top':  [2],
     'target_accuracy':  [1.0],
     
-    # 'learning_rate':  [0.06],
-    'learning_rate':  [0.0001],
+    'learning_rate':  [0.0003],
+    # 'learning_rate':  [0.0001],
     'poison_type':  ['NONE'],
     'poison_fraction':  [0],
     'poison_from':  [0],

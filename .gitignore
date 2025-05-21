@@ -2,4 +2,5 @@
 .vscode/
 tangle_data/
 data/
+results.txt
 __pycache__
