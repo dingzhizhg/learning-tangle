@@ -3,7 +3,7 @@ import shutil
 from sklearn.model_selection import ParameterGrid
 
 params = {
-    'dataset': ['mnist'],
+    'dataset': ['femnist'],
     'model': ['cnn'],
     'num_rounds': [100],
     'eval_every': [10],
@@ -13,10 +13,11 @@ params = {
     # 'num_epochs': [5],
     # 'batch_size': [64],
 
-    'clients_per_round':  [10],
-    'num_tips':  [2],
-    'sample_size':  [5],
-    'reference_avg_top':  [2],
+    'clients_per_round':  [5],
+    'num_tips':  [3],
+    'sample_size':  [3],
+    'reference_avg_top':  [3],
+    # tanglect, 这个参数和num_tips保持一致
     'target_accuracy':  [1.0],
     
     'learning_rate':  [0.0003],
