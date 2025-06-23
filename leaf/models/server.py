@@ -75,15 +75,26 @@ class Server:
         return sys_metrics
 
     def update_model(self):
+        """改进的联邦平均实现，添加数值稳定性"""
+        if not self.updates:
+            return
+            
         total_weight = 0.
-        base = [0] * len(self.updates[0][1])
+        base = [np.zeros_like(self.updates[0][1][i]) for i in range(len(self.updates[0][1]))]
+        
         for (client_samples, client_model) in self.updates:
             total_weight += client_samples
             for i, v in enumerate(client_model):
+                # 使用float64进行高精度计算
                 base[i] += (client_samples * v.astype(np.float64))
-        averaged_soln = [v / total_weight for v in base]
-
-        self.model = averaged_soln
+        
+        # 添加数值稳定性检查
+        if total_weight > 0:
+            averaged_soln = [v / total_weight for v in base]
+            # 确保权重是有效的
+            averaged_soln = [np.nan_to_num(w, nan=0.0, posinf=0.0, neginf=0.0) for w in averaged_soln]
+            self.model = averaged_soln
+        
         self.updates = []
 
     def test_model(self, clients_to_test, set_to_use='test'):

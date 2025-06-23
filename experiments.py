@@ -3,11 +3,10 @@ import shutil
 from sklearn.model_selection import ParameterGrid
 
 params = {
-    'dataset': ['femnist'],
+    'dataset': ['cifar10'],
     'model': ['cnn'],
     'num_rounds': [100],
     'eval_every': [1],
-
     'num_epochs': [2],
     'batch_size': [32],
     # 'num_epochs': [5],
@@ -22,6 +21,7 @@ params = {
     
     'learning_rate':  [0.0005],
     # 'learning_rate':  [0.0001],
+
     'poison_type':  ['NONE'],
     'poison_fraction':  [0],
     'poison_from':  [0],

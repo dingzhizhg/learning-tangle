@@ -86,30 +86,8 @@ class Model(ABC):
     def optimizer(self):
         """Optimizer to be used by the model."""
         if self._optimizer is None:
-            # 修改学习率衰减策略
-            decay_steps = 200
-            decay_rate = 0.95
-            
-            # 使用分段式学习率
-            global_step = self.global_step
-            boundaries = [300, 600, 900]  
-            values = [self.lr, self.lr * 0.1, self.lr * 0.01, self.lr * 0.001]  
-            # boundaries = [200, 400, 600, 800]  
-            # values = [self.lr, self.lr * 0.1, self.lr * 0.01, self.lr * 0.001, self.lr * 0.0001]  
-            
-            learning_rate = tf.train.piecewise_constant_decay(
-                global_step,
-                boundaries=boundaries,
-                values=values
-            )
-            
-            learning_rate = tf.train.exponential_decay(
-                learning_rate,
-                global_step,
-                decay_steps,
-                decay_rate,
-                staircase=True
-            )
+            # 使用固定学习率，去除所有衰减策略
+            learning_rate = self.lr
             
             # 使用Adam优化器，调整参数
             self._optimizer = tf.train.AdamOptimizer(

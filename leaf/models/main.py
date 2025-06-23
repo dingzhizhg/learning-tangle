@@ -26,6 +26,10 @@ FLIP_FROM_CLASS = 3
 FLIP_TO_CLASS = 8
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
+def random_sample(clients, sample_size):
+    """Choose a subset of clients to perform the model validation. Only to be used during development to speed up experiment run times"""
+    return np.random.choice(clients, min(sample_size, len(clients)), replace=False)
+
 def main():
 
     args = parse_args()
@@ -46,8 +50,9 @@ def main():
 
     tup = MAIN_PARAMS[args.dataset][args.t]
     num_rounds = 100
-    eval_every = 10
-    clients_per_round = 5
+
+    eval_every = 1
+    clients_per_round = 10
 
     # Suppress tf warnings
     tf.logging.set_verbosity(tf.logging.WARN)
@@ -63,6 +68,10 @@ def main():
     tf.reset_default_graph()
     client_model = ClientModel(args.seed, *model_params)
 
+    # 添加全局步数管理
+    global_step = tf.Variable(0, trainable=False, name='global_step')
+    client_model.global_step = global_step
+
     # Create server
     server = Server(client_model)
 
@@ -77,7 +86,7 @@ def main():
     print('--- Random Initialization ---')
     stat_writer_fn = get_stat_writer_function(client_ids, client_groups, client_num_samples, args)
     sys_writer_fn = get_sys_writer_function(args)
-    print_stats(0, server, clients, client_num_samples, args, stat_writer_fn, args.use_val_set)
+    print_stats(0, server, random_sample(clients, int(len(clients) * 0.1)), client_num_samples, args, stat_writer_fn, args.use_val_set)
 
     # Simulate training
     for i in range(num_rounds):
@@ -100,10 +109,14 @@ def main():
         
         # Update server model
         server.update_model()
+        
+        # 更新全局步数
+        with tf.Session() as sess:
+            sess.run(global_step.assign(i + 1))
 
         # Test model
         if (i + 1) % eval_every == 0 or (i + 1) == num_rounds:
-            print_stats(i + 1, server, clients, client_num_samples, args, stat_writer_fn, args.use_val_set)
+            print_stats(i + 1, server, random_sample(clients, int(len(clients) * 0.1)), client_num_samples, args, stat_writer_fn, args.use_val_set)
     
     # Save server model
     ckpt_path = os.path.join('checkpoints', args.dataset)

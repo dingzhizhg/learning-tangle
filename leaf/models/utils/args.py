@@ -1,6 +1,6 @@
 import argparse
 
-DATASETS = ['mnist', 'femnist', 'cifar10', 'cifar100']
+DATASETS = ['mnist', 'fmnist', 'femnist', 'cifar10', 'cifar100']
 SIM_TIMES = ['small', 'medium', 'large']
 POISON_TYPES = ['NONE', 'RANDOM', 'LABELFLIP']
 

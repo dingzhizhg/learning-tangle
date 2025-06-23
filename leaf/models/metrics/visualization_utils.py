@@ -75,15 +75,15 @@ def plot_accuracy_vs_round_number(stat_metrics, weighted=False, plot_stds=False,
         stds = stat_metrics.groupby(NUM_ROUND_KEY, as_index=False).std()
 
     if plot_stds:
-        plt.errorbar(accuracies[NUM_ROUND_KEY], accuracies[ACCURACY_KEY], stds[ACCURACY_KEY])
+        plt.errorbar(accuracies[NUM_ROUND_KEY], accuracies[ACCURACY_KEY], stds[ACCURACY_KEY], linewidth=1)
     else:
-        plt.plot(accuracies[NUM_ROUND_KEY], accuracies[ACCURACY_KEY])
+        plt.plot(accuracies[NUM_ROUND_KEY], accuracies[ACCURACY_KEY], linewidth=1)
 
     percentile_10 = stat_metrics.groupby(NUM_ROUND_KEY, as_index=False).quantile(0.1)
     percentile_90 = stat_metrics.groupby(NUM_ROUND_KEY, as_index=False).quantile(0.9)
 
-    plt.plot(percentile_10[NUM_ROUND_KEY], percentile_10[ACCURACY_KEY], linestyle=':')
-    plt.plot(percentile_90[NUM_ROUND_KEY], percentile_90[ACCURACY_KEY], linestyle=':')
+    plt.plot(percentile_10[NUM_ROUND_KEY], percentile_10[ACCURACY_KEY], linestyle=':', linewidth=1)
+    plt.plot(percentile_90[NUM_ROUND_KEY], percentile_90[ACCURACY_KEY], linestyle=':', linewidth=1)
 
     plt.legend(['Mean', '10th percentile', '90th percentile'], loc='upper left')
 
