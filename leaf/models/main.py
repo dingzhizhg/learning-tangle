@@ -45,9 +45,9 @@ def main():
     ClientModel = getattr(mod, 'ClientModel')
 
     tup = MAIN_PARAMS[args.dataset][args.t]
-    num_rounds = args.num_rounds if args.num_rounds != -1 else tup[0]
-    eval_every = args.eval_every if args.eval_every != -1 else tup[1]
-    clients_per_round = args.clients_per_round if args.clients_per_round != -1 else tup[2]
+    num_rounds = 100
+    eval_every = 10
+    clients_per_round = 5
 
     # Suppress tf warnings
     tf.logging.set_verbosity(tf.logging.WARN)
@@ -183,20 +183,23 @@ def get_sys_writer_function(args):
     return writer_fn
 
 
-def print_stats(
-    num_round, server, clients, num_samples, args, writer, use_val_set):
-    
+def print_stats(num_round, server, clients, num_samples, args, writer, use_val_set):
+
     train_stat_metrics = server.test_model(clients, set_to_use='train')
-    print_metrics(train_stat_metrics, num_samples, prefix='train_')
+    print_metrics(train_stat_metrics, num_samples, num_round, prefix='train_')
     writer(num_round, train_stat_metrics, 'train')
 
     eval_set = 'test' if not use_val_set else 'val'
     test_stat_metrics = server.test_model(clients, set_to_use=eval_set)
-    print_metrics(test_stat_metrics, num_samples, prefix='{}_'.format(eval_set), print_conf_matrix=True)
+    average_test_metrics = print_metrics(test_stat_metrics, num_samples, num_round, prefix='{}_'.format(eval_set), print_conf_matrix=False)
     writer(num_round, test_stat_metrics, eval_set)
 
+    with open('results.txt', 'a+') as file:
+        file.write(str(average_test_metrics) + ',\n')
+    return average_test_metrics
 
-def print_metrics(metrics, weights, prefix='', print_conf_matrix=False):
+
+def print_metrics(metrics, weights, num_round, prefix='', print_conf_matrix=False):
     """Prints weighted averages of the given metrics.
 
     Args:
@@ -205,11 +208,12 @@ def print_metrics(metrics, weights, prefix='', print_conf_matrix=False):
         weights: dict with client ids as keys. Each entry is the weight
             for that client.
     """
-    ordered_weights = [weights[c] for c in sorted(weights)]
-    metric_names = metrics_writer.get_metrics_names(metrics)
-    to_ret = None
+    ordered_weights = [weights[c] for c in sorted(weights) if c in metrics]
+    metric_names = ['accuracy', 'loss']  # 只保留accuracy和loss
+    average_metrics = {}
+    
     for metric in metric_names:
-        if metric == 'conf_matrix':
+        if metric not in metrics[next(iter(metrics))]:  # 检查指标是否存在
             continue
         ordered_metric = [metrics[c][metric] for c in sorted(metrics)]
         print('%s: %g, 10th percentile: %g, 50th percentile: %g, 90th percentile %g' \
@@ -218,14 +222,9 @@ def print_metrics(metrics, weights, prefix='', print_conf_matrix=False):
                  np.percentile(ordered_metric, 10),
                  np.percentile(ordered_metric, 50),
                  np.percentile(ordered_metric, 90)))
+        average_metrics[metric] = np.average(ordered_metric, weights=ordered_weights)
 
-    # print confusion matrix
-    if print_conf_matrix:
-        if 'conf_matrix' in metric_names:
-            full_conf_matrix = sum([metrics[c]['conf_matrix'] for c in sorted(metrics)])
-            print('Misclassification percentage: %.2f%%' % (full_conf_matrix[FLIP_FROM_CLASS, FLIP_TO_CLASS] / np.sum(
-                full_conf_matrix[FLIP_FROM_CLASS]) * 100))
-            np.savetxt('conf_matrix.txt', full_conf_matrix, fmt='%4u')
+    return average_metrics
 
 
 if __name__ == '__main__':

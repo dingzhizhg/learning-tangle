@@ -35,6 +35,7 @@ class TipSelector:
         future_set_cache = {}
         for tx in self.tangle.transactions:
             rating[tx] = len(self.future_set(tx, approving_transactions, future_set_cache)) + 1
+            # print(tx, ':', rating[tx])
 
         return rating
 
@@ -102,12 +103,13 @@ class TipSelector:
                 return approvers[i]
         return approvers[-1]
 
+# important！！！
     @staticmethod
     def ratings_to_weight(ratings):
         highest_rating = max(ratings)
         normalized_ratings = [r - highest_rating for r in ratings]
         return [np.exp(r * ALPHA) for r in normalized_ratings]
-
+    
     @staticmethod
     def ratings_to_probability(ratings):
         # Calculating a probability according to the IOTA randomness blog

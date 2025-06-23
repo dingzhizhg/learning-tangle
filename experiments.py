@@ -6,21 +6,21 @@ params = {
     'dataset': ['femnist'],
     'model': ['cnn'],
     'num_rounds': [100],
-    'eval_every': [10],
+    'eval_every': [1],
 
-    'num_epochs': [1],
-    'batch_size': [16],
+    'num_epochs': [2],
+    'batch_size': [32],
     # 'num_epochs': [5],
     # 'batch_size': [64],
 
-    'clients_per_round':  [5],
+    'clients_per_round':  [10],
     'num_tips':  [3],
     'sample_size':  [3],
     'reference_avg_top':  [3],
     # tanglect, 这个参数和num_tips保持一致
     'target_accuracy':  [1.0],
     
-    'learning_rate':  [0.0003],
+    'learning_rate':  [0.0005],
     # 'learning_rate':  [0.0001],
     'poison_type':  ['NONE'],
     'poison_fraction':  [0],

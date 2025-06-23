@@ -3,12 +3,12 @@
 MAIN_PARAMS = {
     'mnist': {
         'small': (30, 10, 2),
-        'medium': (100, 10, 2),
+        'medium': (100, 1, 2),
         'large': (400, 20, 2)
         },
     'femnist': {
         'small': (30, 10, 2),
-        'medium': (100, 10, 2),
+        'medium': (100, 1, 2),
         'large': (400, 20, 2)
         },
     'cifar10': {
@@ -26,7 +26,7 @@ MAIN_PARAMS = {
 
 MODEL_PARAMS = {
     'mnist.cnn': (0.0003, 10), # lr, num_classes
-    'femnist.cnn': (0.0003, 62), # lr, num_classes
+    'femnist.cnn': (0.0005, 62), # lr, num_classes
     'cifar10.cnn': (0.0001, 10), # lr, num_classes
     'cifar100.cnn': (0.0001, 100), # lr, num_classes
 }

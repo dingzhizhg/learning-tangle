@@ -7,7 +7,7 @@ from .malicious_tip_selector import MaliciousTipSelector
 from .transaction import Transaction
 from .poison_type import PoisonType
 
-NUM_TIPS = 2
+NUM_TIPS = 3
 LAMBDA = 0.5
 
 class Node:
@@ -21,17 +21,13 @@ class Node:
           selector = TipSelector(self.tangle)
 
       if len(self.tangle.transactions) < num_tips:
-        parent = self.tangle.transactions[self.tangle.genesis]
-        reference = [self.tangle.transactions[self.tangle.genesis] for i in range(num_tips)]
-        return parent, reference
+        parents = [self.tangle.transactions[self.tangle.genesis] for i in range(num_tips)]
+        return parents
 
-      parent_key = selector.parent_selection()
-      reference_keys = selector.reference_selection(num_tips)
+      parents_key = selector.tip_selection(num_tips)
+      parents = [self.tangle.transactions[k] for k in parents_key]
 
-      parent = self.tangle.transactions[parent_key]
-      reference = [self.tangle.transactions[k] for k in reference_keys]
-
-      return parent, reference
+      return parents
 
   def compute_confidence(self, selector=None, approved_transactions_cache={}):
       num_sampling_rounds = 35
@@ -40,7 +36,7 @@ class Node:
 
       def approved_transactions(transaction):
           if transaction not in approved_transactions_cache:
-              result = set([transaction]).union(*[approved_transactions(r) for r in self.tangle.transactions[transaction].reference])
+              result = set([transaction]).union(*[approved_transactions(r) for r in self.tangle.transactions[transaction].parents])
               approved_transactions_cache[transaction] = result
 
           return approved_transactions_cache[transaction]
@@ -50,10 +46,9 @@ class Node:
           selector = TipSelector(self.tangle)
 
       for i in range(num_sampling_rounds):
-          parent, reference = self.choose_tips(selector=selector)
-          tips = list(reference)
-          tips.append(parent)
-          for tip in tips:
+          parents = self.choose_tips(selector=selector)
+
+          for tip in parents:
               for tx in approved_transactions(tip.name()):
                   transaction_confidence[tx] += 1
 
@@ -62,7 +57,7 @@ class Node:
   def compute_cumulative_score(self, transactions, approved_transactions_cache={}):
       def compute_approved_transactions(transaction):
           if transaction not in approved_transactions_cache:
-              result = set([transaction]).union(*[compute_approved_transactions(r) for r in self.tangle.transactions[transaction].reference])
+              result = set([transaction]).union(*[compute_approved_transactions(r) for r in self.tangle.transactions[transaction].parents])
               approved_transactions_cache[transaction] = result
 
           return approved_transactions_cache[transaction]
@@ -72,7 +67,7 @@ class Node:
   def compute_poisoning_score(self, transactions, approved_transactions_cache={}):
       def compute_approved_transactions(transaction):
           if transaction not in approved_transactions_cache:
-              result = set([transaction]).union(*[compute_approved_transactions(r) for r in self.tangle.transactions[transaction].reference])
+              result = set([transaction]).union(*[compute_approved_transactions(r) for r in self.tangle.transactions[transaction].parents])
               approved_transactions_cache[transaction] = result
 
           return approved_transactions_cache[transaction]
@@ -119,27 +114,25 @@ class Node:
     c_metrics = self.client.test('test')
 
     # Obtain number of tips from the tangle
-    parent, reference_tip = self.choose_tips(num_tips=num_tips, selector=selector)
-    tips = list(reference_tip)
-    tips.append(parent)
+    parents = self.choose_tips(num_tips=num_tips, selector=selector)
 
     if self.poison_type == PoisonType.RANDOM:
         weights = self.client.model.get_params()
         malicious_weights = [np.random.RandomState().normal(size=w.shape) for w in weights]
         print('generated malicious weights')
-        return Transaction(malicious_weights, None, parent.name(), [r.name() for r in reference], malicious=True), None, None
+        return Transaction(malicious_weights, None, [r.name() for r in parents], malicious=True), None, None
     elif self.poison_type == PoisonType.LABELFLIP:
-        averaged_weights = self.average_model_params(*[tip.load_weights() for tip in tips])
+        averaged_weights = self.average_model_params(*[tip.load_weights() for tip in parents])
         self.client.model.set_params(averaged_weights)
         self.client.train(num_epochs, batch_size)
         print('trained on label-flip data')
-        return Transaction(self.client.model.get_params(), None, parent.name(), [r.name() for r in reference], malicious=True), None, None
+        return Transaction(self.client.model.get_params(), None, [r.name() for r in parents], malicious=True), None, None
     else:
-        averaged_weights = self.average_model_params(*[tip.load_weights() for tip in tips])
+        averaged_weights = self.average_model_params(*[tip.load_weights() for tip in parents])
         self.client.model.set_params(averaged_weights)
         comp, num_samples, update = self.client.train(num_epochs, batch_size)
         c_averaged_model_metrics = self.client.test('test')
         if c_averaged_model_metrics['loss'] < c_metrics['loss']:
-            return Transaction(self.client.model.get_params(), c_averaged_model_metrics['accuracy'], parent.name(), [r.name() for r in reference_tip]), c_averaged_model_metrics, comp
+            return Transaction(self.client.model.get_params(), c_averaged_model_metrics['accuracy'], [r.name() for r in parents]), c_averaged_model_metrics, comp
 
     return None, None, None
