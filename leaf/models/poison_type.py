@@ -4,3 +4,4 @@ class PoisonType(IntEnum):
     NONE = 0
     RANDOM = 1
     LABELFLIP = 2
+    LAZY = 3

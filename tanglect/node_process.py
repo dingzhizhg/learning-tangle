@@ -88,6 +88,8 @@ def test_single(u, g, flops, seed, train_data, eval_data, tangle_name, set_to_us
     # 处理parents的list
     parents = [set([tangle.transactions[tx].parent] + tangle.transactions[tx].reference) for tx in reference_txs]
     parents = set.union(*parents)
+    # 过滤掉None值
+    parents = {p for p in parents if p is not None}
     if len(parents) == 2:
         p1, p2 = parents
         pw1 = tangle.transactions[p1].load_weights()

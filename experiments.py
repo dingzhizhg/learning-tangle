@@ -3,31 +3,31 @@ import shutil
 from sklearn.model_selection import ParameterGrid
 
 params = {
-    'dataset': ['cifar10'],
+    'dataset': ['mnist'],
     'model': ['cnn'],
     'num_rounds': [100],
     'eval_every': [1],
-    'num_epochs': [2],
+
+    # for mnist, maybe 1
+    'num_epochs': [1],
     'batch_size': [32],
-    # 'num_epochs': [5],
-    # 'batch_size': [64],
 
     'clients_per_round':  [10],
-    'num_tips':  [3],
-    'sample_size':  [3],
-    'reference_avg_top':  [3],
-    # tanglect, 这个参数和num_tips保持一致
+    'num_tips':  [10],
+    'sample_size':  [10],
+    'reference_avg_top':  [10],
+ 
+
     'target_accuracy':  [1.0],
-    
-    'learning_rate':  [0.0005],
-    # 'learning_rate':  [0.0001],
+    'learning_rate':  [0.0001],
 
     'poison_type':  ['NONE'],
     'poison_fraction':  [0],
     'poison_from':  [0],
     # 'poison_type':  ['LABELFLIP'],
-    # 'poison_fraction':  [0.1],
-    # 'poison_from':  [100],
+    # 'poison_type':  ['LAZY'],
+    # 'poison_fraction':  [0.3],
+    # 'poison_from':  [0],
 }
 
 file_name = 'results.txt'

@@ -20,13 +20,34 @@ class Node:
       if selector is None:
           selector = TipSelector(self.tangle)
 
-      if len(self.tangle.transactions) < num_tips:
-        parent = self.tangle.transactions[self.tangle.genesis]
-        reference = [self.tangle.transactions[self.tangle.genesis] for i in range(num_tips)]
-        return parent, reference
+    #   if len(self.tangle.transactions) < num_tips:
+    #     parent = self.tangle.transactions[self.tangle.genesis]
+    #     reference = [self.tangle.transactions[self.tangle.genesis] for i in range(num_tips)]
+    #     return parent, reference
 
       parent_key = selector.parent_selection()
       reference_keys = selector.reference_selection(num_tips)
+      
+      # 确保parent不在reference列表中
+      if parent_key in reference_keys:
+          # 如果parent在reference中，从reference中移除并重新选择一个
+          reference_keys.remove(parent_key)
+        #   # 获取额外的reference来补充
+        #   additional_reference = selector.reference_selection(1)
+        #   if additional_reference and additional_reference[0] not in reference_keys:
+        #       reference_keys.append(additional_reference[0])
+      
+      # 确保reference列表中没有重复项
+      reference_keys = list(set(reference_keys))
+      
+    #   # 如果去重后reference数量不足，补充更多
+    #   while len(reference_keys) < num_tips:
+    #       additional_reference = selector.reference_selection(1)
+    #       if additional_reference and additional_reference[0] not in reference_keys:
+    #           reference_keys.append(additional_reference[0])
+    #       else:
+    #           # 如果无法获取更多unique的reference，跳出循环避免无限循环
+    #           break
 
       parent = self.tangle.transactions[parent_key]
       reference = [self.tangle.transactions[k] for k in reference_keys]

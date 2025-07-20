@@ -88,14 +88,46 @@ class TipSelector:
         return step
     
     # reference selection
-    def reference_selection(self, num_tips):
+    def reference_selection(self, num_tips, exclude_parent=None):
         entry_point = self.tangle.genesis
         
         reference = []
-        for i in range(num_tips-1):
+        used_tips = set()  # 用于跟踪已选择的tips
+        
+        # 如果指定了要排除的parent，将其加入已使用集合
+        if exclude_parent:
+            used_tips.add(exclude_parent)
+        
+        # 确保选择的tips数量不超过可用的tips数量
+        available_tips = self.get_all_tips()
+        # 排除已使用的tips
+        available_tips = [tip for tip in available_tips if tip not in used_tips]
+        
+        if len(available_tips) < num_tips:
+            num_tips = len(available_tips)
+        
+        attempts = 0
+        max_attempts = num_tips * 20  # 增加最大尝试次数
+        
+        while len(reference) < num_tips and attempts < max_attempts:
             temp = self.randomwalk(entry_point, self.children_list)
-            reference.append(temp)
-
+            
+            # 确保选择的tip不在已选择的列表中
+            if temp not in used_tips and temp in available_tips:
+                reference.append(temp)
+                used_tips.add(temp)
+            
+            attempts += 1
+        
+        # 如果通过随机行走无法获得足够的unique tips，直接从可用tips中随机选择
+        if len(reference) < num_tips:
+            remaining_tips = [tip for tip in available_tips if tip not in used_tips]
+            needed = num_tips - len(reference)
+            if len(remaining_tips) >= needed:
+                selected = random.sample(remaining_tips, needed)
+                reference.extend(selected)
+                used_tips.update(selected)
+        
         return reference
     
     def randomwalk(self, tx, children_list):
@@ -115,12 +147,34 @@ class TipSelector:
 
         # 遍历得到 rating_list
         rating_list = [self.ratings[child] for child in children_list]
-
-        # 生成随机数，以依权重随机选择 child
-        rn = random.uniform(0, sum(rating_list))
-        for i in range(len(children_list)):
-            rn -= rating_list[i]
+        
+        # 使用与tangle/tip_selector.py相同的权重计算方法
+        weights = self.ratings_to_weight(rating_list)
+        
+        # 使用加权随机选择
+        return self.weighted_choice(children_list, weights)
+    
+    @staticmethod
+    def weighted_choice(approvers, weights):
+        """加权随机选择，参考tangle/tip_selector.py的实现"""
+        rn = random.uniform(0, sum(weights))
+        for i in range(len(approvers)):
+            rn -= weights[i]
             if rn <= 0:
-                return children_list[i]
-            
-        return children_list[-1]
+                return approvers[i]
+        return approvers[-1]
+    
+    @staticmethod
+    def ratings_to_weight(ratings):
+        """将ratings转换为权重，参考tangle/tip_selector.py的实现"""
+        highest_rating = max(ratings)
+        normalized_ratings = [r - highest_rating for r in ratings]
+        return [np.exp(r * ALPHA) for r in normalized_ratings]
+
+    def get_all_tips(self):
+        """获取所有可用的tips"""
+        tips = []
+        for tx in self.tangle.transactions:
+            if len(self.children_list[tx]) == 0:  # 没有子节点的就是tip
+                tips.append(tx)
+        return tips
