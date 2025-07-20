@@ -127,6 +127,11 @@ class Node:
         self.client.train(num_epochs, batch_size)
         print('trained on label-flip data')
         return Transaction(self.client.model.get_params(), None, [r.name() for r in parents], malicious=True), None, None
+    elif self.poison_type == PoisonType.LAZY:
+        # Lazy attack: node does not train, just returns averaged weights without training
+        averaged_weights = self.average_model_params(*[tip.load_weights() for tip in parents])
+        print('lazy attack: no training performed, returning averaged weights')
+        return Transaction(averaged_weights, None, [r.name() for r in parents], malicious=True), None, None
     else:
         averaged_weights = self.average_model_params(*[tip.load_weights() for tip in parents])
         self.client.model.set_params(averaged_weights)

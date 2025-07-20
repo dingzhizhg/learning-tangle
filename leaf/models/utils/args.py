@@ -1,8 +1,8 @@
 import argparse
 
-DATASETS = ['mnist', 'fmnist', 'femnist', 'cifar10', 'cifar100']
+DATASETS = ['mnist', 'fmnist', 'cifar10', 'cifar100']
 SIM_TIMES = ['small', 'medium', 'large']
-POISON_TYPES = ['NONE', 'RANDOM', 'LABELFLIP']
+POISON_TYPES = ['NONE', 'RANDOM', 'LABELFLIP', 'LAZY']
 
 
 def parse_args():

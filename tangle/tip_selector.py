@@ -40,10 +40,19 @@ class TipSelector:
         return rating
 
     def future_set(self, tx, approving_transactions, future_set_cache):
-        def recurse_future_set(t):
+        def recurse_future_set(t, visited=None):
+            if visited is None:
+                visited = set()
+            
+            if t in visited:
+                # 检测到循环，返回空集
+                return set()
+            
             if t not in future_set_cache:
+                visited.add(t)
                 direct_approvals = set(approving_transactions[t])
-                future_set_cache[t] = direct_approvals.union(*[recurse_future_set(x) for x in direct_approvals])
+                future_set_cache[t] = direct_approvals.union(*[recurse_future_set(x, visited.copy()) for x in direct_approvals])
+                visited.remove(t)
 
             return future_set_cache[t]
 

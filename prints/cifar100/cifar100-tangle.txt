@@ -1,4 +1,4 @@
-# cifar100, tangle, lr=0.00005, clients=10, tips=8, num_epochs=5, batch_size=32
+# cifar100, tangle, lr=0.00005, clients=10, tips=10, num_epochs=5, batch_size=32
 {'accuracy': 0.008214106834912905, 'loss': 5.980438893456613},
 {'accuracy': 0.03656879679564895, 'loss': 5.476562222318713},
 {'accuracy': 0.06541498687772683, 'loss': 5.388306262161811},

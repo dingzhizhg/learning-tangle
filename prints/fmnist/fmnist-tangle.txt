@@ -1,4 +1,4 @@
-# fmnist, tangle, lr=0.0001, clients=10, tips=8, num_epochs=5, batch_size=32
+# fmnist, tangle, lr=0.0001, clients=10, tips=10, num_epochs=5, batch_size=32
 {'accuracy': 0.11412731342303822, 'loss': 2.3067398924027045},
 {'accuracy': 0.7347679942058846, 'loss': 0.8362539414096275},
 {'accuracy': 0.7441156674164241, 'loss': 0.6990653378169884},

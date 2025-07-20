@@ -59,10 +59,19 @@ class Node:
 
       transaction_confidence = {x: 0 for x in self.tangle.transactions}
 
-      def approved_transactions(transaction):
+      def approved_transactions(transaction, visited=None):
+          if visited is None:
+              visited = set()
+          
+          if transaction in visited:
+              # 检测到循环，返回只包含当前交易的集合
+              return set([transaction])
+          
           if transaction not in approved_transactions_cache:
-              result = set([transaction]).union(*[approved_transactions(parent) for parent in self.tangle.transactions[transaction].parents])
+              visited.add(transaction)
+              result = set([transaction]).union(*[approved_transactions(parent, visited.copy()) for parent in self.tangle.transactions[transaction].parents])
               approved_transactions_cache[transaction] = result
+              visited.remove(transaction)
 
           return approved_transactions_cache[transaction]
 
@@ -79,20 +88,38 @@ class Node:
       return {tx: float(transaction_confidence[tx]) / (num_sampling_rounds * 2) for tx in self.tangle.transactions}
 
   def compute_cumulative_score(self, transactions, approved_transactions_cache={}):
-      def compute_approved_transactions(transaction):
+      def compute_approved_transactions(transaction, visited=None):
+          if visited is None:
+              visited = set()
+          
+          if transaction in visited:
+              # 检测到循环，返回只包含当前交易的集合
+              return set([transaction])
+          
           if transaction not in approved_transactions_cache:
-              result = set([transaction]).union(*[compute_approved_transactions(parent) for parent in self.tangle.transactions[transaction].parents])
+              visited.add(transaction)
+              result = set([transaction]).union(*[compute_approved_transactions(parent, visited.copy()) for parent in self.tangle.transactions[transaction].parents])
               approved_transactions_cache[transaction] = result
+              visited.remove(transaction)
 
           return approved_transactions_cache[transaction]
 
       return {tx: len(compute_approved_transactions(tx)) for tx in transactions}
 
   def compute_poisoning_score(self, transactions, approved_transactions_cache={}):
-      def compute_approved_transactions(transaction):
+      def compute_approved_transactions(transaction, visited=None):
+          if visited is None:
+              visited = set()
+          
+          if transaction in visited:
+              # 检测到循环，返回只包含当前交易的集合
+              return set([transaction])
+          
           if transaction not in approved_transactions_cache:
-              result = set([transaction]).union(*[compute_approved_transactions(parent) for parent in self.tangle.transactions[transaction].parents])
+              visited.add(transaction)
+              result = set([transaction]).union(*[compute_approved_transactions(parent, visited.copy()) for parent in self.tangle.transactions[transaction].parents])
               approved_transactions_cache[transaction] = result
+              visited.remove(transaction)
 
           return approved_transactions_cache[transaction]
 
@@ -155,6 +182,11 @@ class Node:
         self.client.train(num_epochs, batch_size)
         print('trained on label-flip data')
         return Transaction(self.client.model.get_params(), set([tip.name() for tip in tips]), malicious=True), None, None
+    elif self.poison_type == PoisonType.LAZY:
+        # Lazy attack: node does not train, just returns averaged weights without training
+        averaged_weights = self.average_model_params(*[tip.load_weights() for tip in tips])
+        print('lazy attack: no training performed, returning averaged weights')
+        return Transaction(averaged_weights, set([tip.name() for tip in tips]), malicious=True), None, None
     else:
         # Perform averaging
 

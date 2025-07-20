@@ -3,7 +3,7 @@ import random
 
 import numpy as np
 
-ALPHA = 0.05
+ALPHA = 0.001
 
 class TipSelector:
     def __init__(self, tangle):
