@@ -64,9 +64,9 @@ class Server:
                 num_samples = c.num_train_samples
                 comp = 0
             elif c.id in malicious_clients and poison_type == PoisonType.LAZY:
-                # Lazy attack: client does not train, just returns current model weights
-                print('lazy attack: no training performed, returning current weights')
-                update = [np.zeros_like(w) for w in c.model.get_params()]  # Zero update means no change
+                # Lazy attack: client does not train, just returns the model sent by server
+                print('lazy attack: no training performed, returning server model weights')
+                update = [w for w in c.model.get_params()]  # Return server model weights directly
                 num_samples = c.num_train_samples
                 comp = 0
             else:

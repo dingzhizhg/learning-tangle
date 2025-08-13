@@ -3,13 +3,13 @@ import shutil
 from sklearn.model_selection import ParameterGrid
 
 params = {
-    'dataset': ['mnist'],
+    'dataset': ['cifar10'],
     'model': ['cnn'],
     'num_rounds': [100],
     'eval_every': [1],
 
     # for mnist, maybe 1
-    'num_epochs': [1],
+    'num_epochs': [3],
     'batch_size': [32],
 
     'clients_per_round':  [10],
@@ -19,15 +19,15 @@ params = {
  
 
     'target_accuracy':  [1.0],
-    'learning_rate':  [0.0001],
+    'learning_rate':  [0.00002],
 
-    'poison_type':  ['NONE'],
-    'poison_fraction':  [0],
-    'poison_from':  [0],
-    # 'poison_type':  ['LABELFLIP'],
-    # 'poison_type':  ['LAZY'],
-    # 'poison_fraction':  [0.3],
+    # 'poison_type':  ['NONE'],
+    # 'poison_fraction':  [0],
     # 'poison_from':  [0],
+    # 'poison_type':  ['LABELFLIP'],
+    'poison_type':  ['LAZY'],
+    'poison_fraction':  [0.3],
+    'poison_from':  [0],
 }
 
 file_name = 'results.txt'

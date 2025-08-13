@@ -21,7 +21,7 @@ from client import Client
 from server import Server
 from model import ServerModel
 
-from tanglect import Tangle, Transaction, PoisonType, train_single, test_single
+from tanglecta import Tangle, Transaction, PoisonType, train_single, test_single
 
 from utils.args import parse_args
 from utils.model_utils import read_data
@@ -77,6 +77,16 @@ def main():
     # Create tangle and tangle metrics
     os.makedirs('tangle_data/transactions', exist_ok=True)
 
+    # Clear delay.txt file for new run
+    with open('delay.txt', 'w') as delay_file:
+        delay_file.write('Training Round Delays:\n')
+        delay_file.write('=' * 30 + '\n')
+
+    # Clear train.txt file for new run
+    with open('train.txt', 'w') as train_file:
+        train_file.write('Training Duration (All Selected Nodes per Round):\n')
+        train_file.write('=' * 30 + '\n')
+
     # Legacy metrics variables (not used)
     global_loss = [],
     global_accuracy = [],
@@ -86,8 +96,8 @@ def main():
 
     if start_from_round == 0:
         # genesis = Transaction(client_model.get_params(), [], tag=0)
-        # genesis = Transaction(client_model.get_params(), None, [], tag=0)
-        genesis = Transaction(client_model.get_params(), None, None, [], tag=0)
+        genesis = Transaction(client_model.get_params(), None, [], tag=0)
+        # genesis = Transaction(client_model.get_params(), None, None, [], tag=0)
         tangle = Tangle({genesis.name(): genesis}, genesis.name())
         tangle.save(tangle_tag + str(0), global_loss, global_accuracy, norm)
     else:
@@ -114,13 +124,20 @@ def main():
     avg_eval_duration = timeit.default_timer() - start_time
     eval_count = 1
     avg_round_duration = 1000
+    
+    # Record training start time (excluding initialization and round 0 evaluation)
+    training_start_time = timeit.default_timer()
+    
+    # Initialize training duration tracking variables
+    total_training_duration = 0
+    avg_training_duration = 0
 
     # Simulate training
     for i in range(start_from_round, num_rounds):
         rounds_remaining = num_rounds - i
         time_remaining = avg_eval_duration * (rounds_remaining // eval_every) + avg_round_duration * rounds_remaining
         print('--- Round %d of %d: Training %d Clients --- Time remaining: ~ %d min' % (i + 1, num_rounds, clients_per_round, time_remaining // 60))
-        start_time = timeit.default_timer()
+        round_start_time = timeit.default_timer()
 
         # Select clients to train this round
         if i >= poison_from:
@@ -131,12 +148,34 @@ def main():
             server.select_clients(i, online(clients, exclude_clients=malicious_clients), num_clients=clients_per_round)
         c_ids, c_groups, c_num_samples = server.get_clients_info(server.selected_clients)
 
-        # Simulate server model training on selected clients' data
-        sys_metrics = tangle.run_nodes(train_single, server.selected_clients, i + 1,
-                                       num_epochs=args.num_epochs, batch_size=args.batch_size,
-                                       malicious_clients=malicious_clients, poison_type=poison_type)
+        # Simulate server model training on selected clients' data and log training duration for all selected nodes
+        sys_metrics = measure_and_log_train_duration(
+            i + 1,
+            tangle.run_nodes,
+            train_single,
+            server.selected_clients,
+            i + 1,
+            num_epochs=args.num_epochs,
+            batch_size=args.batch_size,
+            malicious_clients=malicious_clients,
+            poison_type=poison_type,
+        )
         # norm.append(np.array(norm_this_round).mean(axis=0).tolist() if len(norm_this_round) else [])
         sys_writer_fn(i + 1, c_ids, sys_metrics, c_groups, c_num_samples)
+        
+        # Update training duration tracking
+        # Read the training duration from train.txt for this round
+        with open('train.txt', 'r') as train_file:
+            lines = train_file.readlines()
+            if len(lines) > 0:
+                last_line = lines[-1].strip()
+                if last_line.startswith(f'Round {i + 1}:'):
+                    try:
+                        round_training_duration = float(last_line.split(':')[1].split()[0])
+                        total_training_duration += round_training_duration
+                        avg_training_duration = total_training_duration / (i + 1 - start_from_round)
+                    except (ValueError, IndexError):
+                        pass
 
         # Update global metrics
         # Todo: Add global accuracy & loss to json files
@@ -145,17 +184,39 @@ def main():
         # Update tangle on disk
         tangle.save(tangle_tag + str(i+1), global_loss, global_accuracy, norm)
 
-        avg_round_duration = (avg_round_duration * i / (i+1)) + ((timeit.default_timer() - start_time) / (i+1))
+        # Calculate round duration and write to delay.txt
+        round_duration = timeit.default_timer() - round_start_time
+        with open('delay.txt', 'a+') as delay_file:
+            delay_file.write(f'Round {i + 1}: {round_duration:.4f} seconds\n')
+        
+        avg_round_duration = (avg_round_duration * i / (i+1)) + (round_duration / (i+1))
 
         # Test model
         if (i + 1) % eval_every == 0 or (i + 1) == num_rounds:
-            start_time = timeit.default_timer()
+            eval_start_time = timeit.default_timer()
             average_test_metrics = print_stats(i + 1, tangle, random_sample(clients, int(len(clients) * 0.1)), client_num_samples, args, stat_writer_fn, args.use_val_set, (poison_type != PoisonType.NONE))
             eval_count = eval_count + 1
-            avg_eval_duration = (avg_eval_duration * (eval_count-1) / eval_count) + ((timeit.default_timer() - start_time) / eval_count)
+            avg_eval_duration = (avg_eval_duration * (eval_count-1) / eval_count) + ((timeit.default_timer() - eval_start_time) / eval_count)
             if average_test_metrics['accuracy'] >= args.target_accuracy:
                 print("Reached test_accuracy: %g after %d rounds" % (average_test_metrics['accuracy'], i + 1))
                 break
+
+    # Write total training time to delay.txt (only training rounds, excluding evaluation time)
+    total_training_time = timeit.default_timer() - training_start_time
+    with open('delay.txt', 'a+') as delay_file:
+        delay_file.write('=' * 30 + '\n')
+        delay_file.write(f'Total Training Time: {total_training_time:.4f} seconds\n')
+        delay_file.write(f'Average Round Time: {avg_round_duration:.4f} seconds\n')
+    
+    # Write training duration summary to train.txt
+    with open('train.txt', 'a+') as train_file:
+        train_file.write('=' * 30 + '\n')
+        train_file.write(f'Total Training Duration: {total_training_duration:.4f} seconds\n')
+        train_file.write(f'Average Training Duration per Round: {avg_training_duration:.4f} seconds\n')
+    
+    print(f'Training completed. Total time: {total_training_time:.4f} seconds')
+    print(f'Delay information saved to delay.txt')
+    print(f'Training duration information saved to train.txt')
 
     # Close models
     # server.close_model()
@@ -228,6 +289,15 @@ def get_sys_writer_function(args):
             num_round, ids, metrics, groups, num_samples, 'train', 'leaf/models/metrics', '{}_{}'.format('sys', args.metrics_name))
 
     return writer_fn
+
+
+def measure_and_log_train_duration(round_number, training_callable, *args, **kwargs):
+    start_time = timeit.default_timer()
+    result = training_callable(*args, **kwargs)
+    training_duration = timeit.default_timer() - start_time
+    with open('train.txt', 'a+') as train_file:
+        train_file.write(f'Round {round_number}: {training_duration:.4f} seconds\n')
+    return result
 
 
 def print_stats(

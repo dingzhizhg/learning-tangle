@@ -7,6 +7,7 @@ import sys
 import random
 import tensorflow as tf
 import math
+import timeit
 
 import metrics.writer as metrics_writer
 
@@ -72,6 +73,16 @@ def main():
     global_step = tf.Variable(0, trainable=False, name='global_step')
     client_model.global_step = global_step
 
+    # Clear delay.txt file for new run
+    with open('delay.txt', 'w') as delay_file:
+        delay_file.write('Training Round Delays:\n')
+        delay_file.write('=' * 30 + '\n')
+
+    # Clear train.txt file for new run
+    with open('train.txt', 'w') as train_file:
+        train_file.write('Training Duration (All Selected Nodes per Round):\n')
+        train_file.write('=' * 30 + '\n')
+
     # Create server
     server = Server(client_model)
 
@@ -86,11 +97,19 @@ def main():
     print('--- Random Initialization ---')
     stat_writer_fn = get_stat_writer_function(client_ids, client_groups, client_num_samples, args)
     sys_writer_fn = get_sys_writer_function(args)
+    start_time = timeit.default_timer()
     print_stats(0, server, random_sample(clients, int(len(clients) * 0.1)), client_num_samples, args, stat_writer_fn, args.use_val_set)
 
     # Simulate training
+    # 记录训练起始（不含初始化与第0轮评估）
+    training_start_time = timeit.default_timer()
+    total_training_duration = 0
+    avg_training_duration = 0
+    avg_round_duration = 1000
+
     for i in range(num_rounds):
         print('--- Round %d of %d: Training %d Clients ---' % (i + 1, num_rounds, clients_per_round))
+        round_start_time = timeit.default_timer()
 
         # Select clients to train this round
         if i >= poison_from:
@@ -102,11 +121,30 @@ def main():
         c_ids, c_groups, c_num_samples = server.get_clients_info(server.selected_clients)
 
         # Simulate server model training on selected clients' data
-        sys_metrics = server.train_model(num_epochs=args.num_epochs, batch_size=args.batch_size,
-                                         minibatch=args.minibatch, malicious_clients=malicious_clients,
-                                         poison_type=poison_type)
+        sys_metrics = measure_and_log_train_duration(
+            i + 1,
+            server.train_model,
+            num_epochs=args.num_epochs,
+            batch_size=args.batch_size,
+            minibatch=args.minibatch,
+            malicious_clients=malicious_clients,
+            poison_type=poison_type
+        )
         sys_writer_fn(i + 1, c_ids, sys_metrics, c_groups, c_num_samples)
         
+        # 更新训练时长跟踪：从 train.txt 中读取本轮训练耗时并累计
+        try:
+            with open('train.txt', 'r') as train_file:
+                lines = train_file.readlines()
+                if lines:
+                    last_line = lines[-1].strip()
+                    if last_line.startswith(f'Round {i + 1}:'):
+                        round_training_duration = float(last_line.split(':')[1].split()[0])
+                        total_training_duration += round_training_duration
+                        avg_training_duration = total_training_duration / (i + 1)
+        except Exception:
+            pass
+
         # Update server model
         server.update_model()
         
@@ -114,10 +152,34 @@ def main():
         with tf.Session() as sess:
             sess.run(global_step.assign(i + 1))
 
+        # Calculate round duration and write to delay.txt
+        round_duration = timeit.default_timer() - round_start_time
+        with open('delay.txt', 'a+') as delay_file:
+            delay_file.write(f'Round {i + 1}: {round_duration:.4f} seconds\n')
+
+        # 更新平均轮耗时
+        avg_round_duration = (avg_round_duration * i / (i + 1)) + (round_duration / (i + 1))
+
         # Test model
         if (i + 1) % eval_every == 0 or (i + 1) == num_rounds:
             print_stats(i + 1, server, random_sample(clients, int(len(clients) * 0.1)), client_num_samples, args, stat_writer_fn, args.use_val_set)
     
+    # Write total training time to delay.txt（仅训练阶段，不含初始化与评估）
+    total_training_time = timeit.default_timer() - training_start_time
+    with open('delay.txt', 'a+') as delay_file:
+        delay_file.write('=' * 30 + '\n')
+        delay_file.write(f'Total Training Time: {total_training_time:.4f} seconds\n')
+        delay_file.write(f'Average Round Time: {avg_round_duration:.4f} seconds\n')
+    
+    # 写入 train.txt 汇总
+    with open('train.txt', 'a+') as train_file:
+        train_file.write('=' * 30 + '\n')
+        train_file.write(f'Total Training Duration: {total_training_duration:.4f} seconds\n')
+        train_file.write(f'Average Training Duration per Round: {avg_training_duration:.4f} seconds\n')
+    
+    print(f'Training completed. Total time: {total_training_time:.4f} seconds')
+    print(f'Delay information saved to delay.txt')
+
     # Save server model
     ckpt_path = os.path.join('checkpoints', args.dataset)
     if not os.path.exists(ckpt_path):
@@ -194,6 +256,15 @@ def get_sys_writer_function(args):
             num_round, ids, metrics, groups, num_samples, 'train', args.metrics_dir, '{}_{}'.format(args.metrics_name, 'sys'))
 
     return writer_fn
+
+
+def measure_and_log_train_duration(round_number, training_callable, *args, **kwargs):
+    start_time = timeit.default_timer()
+    result = training_callable(*args, **kwargs)
+    training_duration = timeit.default_timer() - start_time
+    with open('train.txt', 'a+') as train_file:
+        train_file.write(f'Round {round_number}: {training_duration:.4f} seconds\n')
+    return result
 
 
 def print_stats(num_round, server, clients, num_samples, args, writer, use_val_set):
